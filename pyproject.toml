@@ -1,0 +1,25 @@
+[project]
+name = "elasticsearch-agent"
+version = "0.2.0"
+description = "LangGraph Elasticsearch AI agent POC"
+requires-python = ">=3.11"
+dependencies = [
+  "elasticsearch>=8.10,<9",
+  "langgraph>=0.2,<1",
+  "langchain-core>=0.3,<1",
+  "langchain-openai>=0.2,<1",
+  "matplotlib>=3.8,<4",
+  "pydantic>=2.7,<3",
+  "python-dotenv>=1.0,<2",
+  "typing-extensions>=4.10,<5",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+
+[project.scripts]
+elasticsearch-agent = "elasticsearch_agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
