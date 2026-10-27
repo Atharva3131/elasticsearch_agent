@@ -1,15 +1,15 @@
 from typing import Type, Optional
 
-from langchain.callbacks.manager import (
+from langchain_core.callbacks import (
     CallbackManagerForToolRun,
 )
 
 from pydantic import BaseModel, Field
 
-from langchain.tools.base import BaseTool
+from langchain_core.tools import BaseTool
 
 from elasticsearch_agent.log_init import logger
-from elasticsearch_agent.config import cfg
+from elasticsearch_agent.config import cfg, validate_index_name
 
 
 class IndexShowDataInput(BaseModel):
@@ -31,16 +31,17 @@ class IndexShowDataTool(BaseTool):
     ) -> str:
         """Get all indices in the elastic search server ususally separated by a line break"""
         try:
-            res = cfg.es.search(
+            index_name = validate_index_name(index_name)
+            res = cfg.elasticsearch().search(
                 index=index_name,
                 from_=cfg.elastic_index_data_from,
                 size=cfg.elastic_index_data_size,
                 query={"match_all": {}},
             )
             return str(res["hits"])
-        except:
+        except Exception:
             logger.exception(f"Could not fetch index data for {index_name}")
-            return ""
+            raise
 
     args_schema: Optional[Type[BaseModel]] = IndexShowDataInput
 

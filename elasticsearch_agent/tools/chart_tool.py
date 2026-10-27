@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Sequence
 
 from pydantic import BaseModel, Field, field_validator
@@ -32,11 +33,38 @@ def create_pie_chart(title: str, labels: Sequence[str], values: Sequence[float],
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    path = Path(request.output_path) if request.output_path else cfg.chart_output_dir / "revenue_pie.png"
+    if request.output_path:
+        path = Path(request.output_path)
+    else:
+        slug = re.sub(r"[^a-z0-9]+", "_", request.title.lower()).strip("_") or "chart"
+        path = cfg.chart_output_dir / f"{slug}_pie.png"
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax = plt.subplots()
-    ax.pie(request.values, labels=request.labels, autopct="%1.1f%%")
+    fig, ax = plt.subplots(figsize=(9, 6))
+    total = sum(request.values)
+    legend_labels = [
+        f"{label} — {value:g} ({value / total * 100:.1f}%)"
+        for label, value in zip(request.labels, request.values)
+    ]
+    wedges, _, autotexts = ax.pie(
+        request.values,
+        labels=None,
+        autopct="%1.1f%%",
+        pctdistance=0.7,
+        startangle=90,
+    )
+    for autotext in autotexts:
+        autotext.set_color("white")
+        autotext.set_fontsize(9)
+    ax.legend(
+        wedges,
+        legend_labels,
+        title="Categories",
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        fontsize=9,
+    )
     ax.set_title(request.title)
+    ax.axis("equal")
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
     return {"artifact_path": str(path), "title": request.title, "labels": request.labels, "values": request.values, "format": "png"}

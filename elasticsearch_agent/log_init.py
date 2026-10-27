@@ -14,6 +14,7 @@ from typing import Any
 from elasticsearch_agent.config import cfg
 
 _SECRET = re.compile(r"(?i)(api[_-]?key|password|authorization|token|secret)\s*[:=]\s*([^,\s}]+)")
+_URL_CREDENTIALS = re.compile(r"(?i)(https?://)([^/@\s]+):([^/@\s]+)@")
 
 
 def redact(value: Any) -> Any:
@@ -22,6 +23,7 @@ def redact(value: Any) -> Any:
     if isinstance(value, list):
         return [redact(v) for v in value]
     if isinstance(value, str):
+        value = _URL_CREDENTIALS.sub(r"\1<REDACTED>:<REDACTED>@", value)
         return _SECRET.sub(lambda m: f"{m.group(1)}=<REDACTED>", value)
     return value
 
@@ -54,7 +56,7 @@ class AuditLogger:
             self.event("tool.completed", tool=name, status="success", duration_ms=round((time.perf_counter() - started) * 1000, 2), result_metadata=_metadata(result))
             return result
         except Exception as exc:
-            self.event("tool.completed", tool=name, status="failure", duration_ms=round((time.perf_counter() - started) * 1000, 2), error=repr(exc))
+            self.event("tool.failed", tool=name, status="failure", duration_ms=round((time.perf_counter() - started) * 1000, 2), error=repr(exc), error_type=type(exc).__name__)
             raise
 
 

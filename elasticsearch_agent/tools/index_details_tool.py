@@ -2,13 +2,13 @@ from typing import Type, Optional
 
 from pydantic import BaseModel, Field
 
-from langchain.callbacks.manager import (
+from langchain_core.callbacks import (
     AsyncCallbackManagerForToolRun,
     CallbackManagerForToolRun,
 )
 
-from elasticsearch_agent.config import cfg
-from langchain.tools.base import BaseTool
+from elasticsearch_agent.config import cfg, validate_index_name
+from langchain_core.tools import BaseTool
 from elasticsearch_agent.log_init import logger
 
 
@@ -32,11 +32,13 @@ class IndexDetailsTool(BaseTool):
     ) -> str:
         """Get all indices in the elastic search server ususally separated by a line break"""
         try:
-            alias = cfg.es.indices.get_alias(index=index_name)
-            field_mappings = cfg.es.indices.get_field_mapping(
+            index_name = validate_index_name(index_name)
+            client = cfg.elasticsearch()
+            alias = client.indices.get_alias(index=index_name)
+            field_mappings = client.indices.get_field_mapping(
                 index=index_name, fields="*"
             )
-            field_settings = cfg.es.indices.get_settings(index=index_name)
+            field_settings = client.indices.get_settings(index=index_name)
             return str(
                 {
                     "alias": alias[index_name],
@@ -44,9 +46,9 @@ class IndexDetailsTool(BaseTool):
                     "settings": field_settings[index_name],
                 }
             )
-        except:
+        except Exception:
             logger.exception(f"Could not fetch index information for {index_name}")
-            return ""
+            raise
 
     async def _arun(
         self,

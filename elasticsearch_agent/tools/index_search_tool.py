@@ -1,10 +1,9 @@
 import json
 
-import tiktoken
-from langchain.tools import StructuredTool
-from pydantic.v1 import BaseModel, Field  # <-- Uses v1 namespace
+from langchain_core.tools import StructuredTool
+from pydantic import BaseModel, Field
 
-from elasticsearch_agent.config import cfg
+from elasticsearch_agent.config import cfg, validate_index_name
 from elasticsearch_agent.log_init import logger
 
 
@@ -32,8 +31,8 @@ def elastic_search(
         size: int = cfg.elastic_index_data_size,
 ):
     """Executes a specific query on an ElasticSearch index and returns all hits or aggregation results"""
+    index_name = validate_index_name(index_name)
     size = min(cfg.elastic_index_data_max_size, size)
-    encoding = tiktoken.encoding_for_model(cfg.model)
     try:
         full_dict: dict = json.loads(query)
         query_dict = full_dict["query"] if "query" in full_dict else None
@@ -48,7 +47,7 @@ def elastic_search(
 
         retries = 0
         while retries < cfg.max_search_retries:
-            res = cfg.es.search(
+            res = cfg.elasticsearch().search(
                 index=index_name,
                 from_=from_,
                 size=size,
@@ -59,20 +58,23 @@ def elastic_search(
             )
             if aggs_dict is not None and size == 0:
                 # When a result has aggregations, just return that and ignore the rest
-                final_res = str(res['aggregations'])
+                # Return valid JSON; Python's str(dict) uses single quotes and
+                # cannot be decoded by the chart workflow with json.loads().
+                final_res = json.dumps(res['aggregations'])
             else:
                 final_res = str(res['hits'])
-            tokens = encoding.encode(final_res)
+            tokens = len(final_res.split())
             retries += 1
-            if len(tokens) > cfg.token_limit:
+            if tokens > cfg.token_limit and size > 0:
                 size -= 1
             else:
                 return final_res
 
-    except Exception as e:
+        raise RuntimeError("Elasticsearch search exceeded the configured retry limit")
+
+    except Exception:
         logger.exception(f"Could not execute query {query}")
-        msg = str(e)
-        return msg
+        raise
 
 
 def create_search_tool():

@@ -1,8 +1,8 @@
 from typing import Type, Optional, List
 
 from pydantic import BaseModel, Field
-from langchain.tools.base import BaseTool
-from langchain.callbacks.manager import (
+from langchain_core.tools import BaseTool
+from langchain_core.callbacks import (
     AsyncCallbackManagerForToolRun
 )
 
@@ -26,7 +26,7 @@ class ListIndicesTool(BaseTool):
         separator: str
     ) -> str:
         """Get all indices in the elastic search server ususally separated by a line break"""
-        indices: List[str] = cfg.es.cat.indices(h="index", s="index").split()
+        indices: List[str] = cfg.elasticsearch().cat.indices(h="index", s="index").split()
         return separator.join(
             [index for index in indices if not index.startswith(".")]
         )

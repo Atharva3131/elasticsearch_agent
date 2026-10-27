@@ -20,6 +20,13 @@ test = ["pytest>=8,<9"]
 [project.scripts]
 elasticsearch-agent = "elasticsearch_agent.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["elasticsearch_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

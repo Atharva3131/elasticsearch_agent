@@ -1,10 +1,9 @@
 import json
 
-import tiktoken
-from langchain.tools import StructuredTool
-from pydantic.v1 import BaseModel, Field  # <-- Uses v1 namespace
+from langchain_core.tools import StructuredTool
+from pydantic import BaseModel, Field
 
-from elasticsearch_agent.config import cfg
+from elasticsearch_agent.config import cfg, validate_index_name
 from elasticsearch_agent.log_init import logger
 
 
@@ -23,6 +22,7 @@ def elastic_search(
         query: str
 ):
     """Executes a specific query on an ElasticSearch index and returns count of records"""
+    index_name = validate_index_name(index_name)
     try:
         full_dict: dict = json.loads(query)
         query_dict = None
@@ -31,22 +31,21 @@ def elastic_search(
         if query_dict is not None:
             logger.info(query)
 
-            res = cfg.es.count(
+            res = cfg.elasticsearch().count(
                 index=index_name,
                 query=query_dict
             )
         else:
-            res = cfg.es.count(
+            res = cfg.elasticsearch().count(
                 index=index_name
             )
 
         final_res = str(res['count'])
         return final_res
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Could not execute query {query}")
-        msg = str(e)
-        return msg
+        raise
 
 
 def create_count_tool():
