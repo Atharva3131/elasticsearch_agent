@@ -13,6 +13,10 @@ class ListIndicesInput(BaseModel):
     """Input for the list indices tool."""
 
     separator: str = Field(..., description="separator for the list of indices")
+    reason: str = Field(
+        default="",
+        description="Explain in one sentence why you are calling this tool and what you expect to get from it.",
+    )
 
 
 class ListIndicesTool(BaseTool):

@@ -16,6 +16,10 @@ class IndexShowDataInput(BaseModel):
     """Input for the index show data tool."""
 
     index_name: str = Field(..., description="The name of the index for which the data is to be retrieved")
+    reason: str = Field(
+        default="",
+        description="Explain in one sentence why you are calling this tool and what you expect to get from it.",
+    )
 
 
 class IndexShowDataTool(BaseTool):

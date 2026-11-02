@@ -15,6 +15,10 @@ class CountToolInput(BaseModel):
     )
     query: str = Field(...,
                        description="The ElasticSearch JSON query used to filter through the records and fetch the index count")
+    reason: str = Field(
+        default="",
+        description="Explain in one sentence why you are calling this tool and what you expect to get from it.",
+    )
 
 
 def elastic_search(

@@ -17,6 +17,10 @@ class IndexDetailsInput(BaseModel):
     """Input for the list index details tool."""
 
     index_name: str = Field(..., description="The name of the index for which the details are to be retrieved")
+    reason: str = Field(
+        default="",
+        description="Explain in one sentence why you are calling this tool and what you expect to get from it.",
+    )
 
 
 class IndexDetailsTool(BaseTool):

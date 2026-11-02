@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-from typing import Sequence
+from typing import Sequence, Optional
 
+from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field, field_validator
 
 from elasticsearch_agent.config import cfg
@@ -13,7 +14,11 @@ class PieChartInput(BaseModel):
     title: str = Field(min_length=1)
     labels: list[str] = Field(min_length=1)
     values: list[float] = Field(min_length=1)
-    output_path: str | None = None
+    output_path: Optional[str] = None
+    reason: str = Field(
+        default="",
+        description="Explain in one sentence why you are calling this tool and what you expect to get from it.",
+    )
 
     @field_validator("values")
     @classmethod
@@ -27,7 +32,7 @@ class PieChartInput(BaseModel):
             raise ValueError("labels and values must have equal lengths")
 
 
-def create_pie_chart(title: str, labels: Sequence[str], values: Sequence[float], output_path: str | None = None) -> dict:
+def create_pie_chart(title: str, labels: Sequence[str], values: Sequence[float], output_path: str | None = None, reason: str = "") -> dict:
     request = PieChartInput(title=title, labels=list(labels), values=list(values), output_path=output_path)
     request.validate_lengths()
     import matplotlib
@@ -68,3 +73,16 @@ def create_pie_chart(title: str, labels: Sequence[str], values: Sequence[float],
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
     return {"artifact_path": str(path), "title": request.title, "labels": request.labels, "values": request.values, "format": "png"}
+
+
+def create_chart_tool() -> StructuredTool:
+    return StructuredTool.from_function(
+        create_pie_chart,
+        name="create_pie_chart",
+        description=(
+            "Render a pie chart from a list of labels and numeric values. "
+            "Use this after retrieving aggregation buckets from Elasticsearch. "
+            "Provide a descriptive title, matching labels and values arrays, and an optional output_path."
+        ),
+        args_schema=PieChartInput,
+    )

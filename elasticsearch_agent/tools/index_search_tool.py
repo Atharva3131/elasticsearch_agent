@@ -22,6 +22,10 @@ class SearchToolInput(BaseModel):
         ...,
         description="How many records will be retrieved from the ElasticSearch query",
     )
+    reason: str = Field(
+        default="",
+        description="Explain in one sentence why you are calling this tool and what you expect to get from it.",
+    )
 
 
 def elastic_search(
@@ -34,15 +38,29 @@ def elastic_search(
     index_name = validate_index_name(index_name)
     size = min(cfg.elastic_index_data_max_size, size)
     try:
-        full_dict: dict = json.loads(query)
-        query_dict = full_dict["query"] if "query" in full_dict else None
-        aggs_dict = full_dict["aggs"] if "aggs" in full_dict else None
-        sort_dict = full_dict["sort"]  if "sort" in full_dict else None
-        source_dict = full_dict["_source"] if "_source" in full_dict else None
+        # Defend against the LLM passing non-JSON or empty strings.
+        stripped = (query or "").strip()
+        if not stripped:
+            full_dict: dict = {}
+        else:
+            try:
+                full_dict = json.loads(stripped)
+            except json.JSONDecodeError:
+                logger.warning(f"Query is not valid JSON, falling back to match_all: {query!r}")
+                full_dict = {}
+
+        query_dict = full_dict.get("query")
+        aggs_dict = full_dict.get("aggs")
+        sort_dict = full_dict.get("sort")
+        source_dict = full_dict.get("_source")
 
         if query_dict is None and aggs_dict is None and sort_dict is None:
-            # Assume that there is a query but that the query part was ommitted.
-            query_dict = full_dict
+            # Assume that there is a query but that the query part was omitted.
+            query_dict = full_dict if full_dict else None
+
+        # Elasticsearch rejects an empty or missing query clause — replace with match_all.
+        if not query_dict:
+            query_dict = {"match_all": {}}
         logger.info(query)
 
         retries = 0

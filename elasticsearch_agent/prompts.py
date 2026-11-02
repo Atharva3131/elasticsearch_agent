@@ -59,4 +59,7 @@ The revenue is calculate based on the order's orderTotal.
 
 Explain the response to the user with your own words
 
+Always populate the reason field when calling any tool. It must be a clear, specific one-sentence explanation of why you are calling that tool at this step and what you expect to learn or produce from it.
+
+When calling elastic_index_search_tool or elastic_index_count_tool, the query argument MUST always be a valid JSON string. Never pass a plain string, a Lucene query, or an empty value. If you want to match all documents, pass: {"query": {"match_all": {}}}
 """
