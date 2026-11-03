@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from elasticsearch_agent.config import cfg, validate_index_name
 from elasticsearch_agent.log_init import logger
+from elasticsearch_agent.tools.index_search_tool import _get_seller_filter, _inject_seller_filter
 
 
 class CountToolInput(BaseModel):
@@ -33,12 +34,13 @@ def elastic_search(
         if "query" in full_dict:
             query_dict = full_dict["query"]
         if query_dict is not None:
-            logger.info(query)
+            # --- Data governance: inject seller filter for ROLE_USER ---
+            seller_filter = _get_seller_filter()
+            if seller_filter:
+                query_dict = _inject_seller_filter(query_dict, seller_filter)
 
-            res = cfg.elasticsearch().count(
-                index=index_name,
-                query=query_dict
-            )
+            logger.info(query)
+            res = cfg.elasticsearch().count(index=index_name, query=query_dict)
         else:
             res = cfg.elasticsearch().count(
                 index=index_name

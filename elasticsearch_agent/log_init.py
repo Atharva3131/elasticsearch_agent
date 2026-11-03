@@ -29,16 +29,26 @@ def redact(value: Any) -> Any:
 
 
 class AuditLogger:
-    def __init__(self, path: Path, on_event=None):
+    def __init__(self, path: Path, on_event=None, username: str = "anonymous", role: str = ""):
         self.path = path
         self.sequence = 0
         self.request_id = ""
+        self.username = username
+        self.role = role
         # Optional callback(record: dict) for live UI streaming (e.g. Streamlit).
         self.on_event = on_event
 
     def event(self, event: str, **fields: Any) -> dict[str, Any]:
         self.sequence += 1
-        record = {"timestamp": datetime.now(timezone.utc).isoformat(), "request_id": self.request_id, "sequence": self.sequence, "event": event, **redact(fields)}
+        record = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "request_id": self.request_id,
+            "sequence": self.sequence,
+            "event": event,
+            "username": self.username,
+            "role": self.role,
+            **redact(fields),
+        }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, default=str) + "\n")

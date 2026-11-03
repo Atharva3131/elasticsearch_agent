@@ -9,6 +9,7 @@ from pathlib import Path
 import streamlit as st
 
 from elasticsearch_agent.agent.workflow import run_question_with_callback
+from elasticsearch_agent.auth import login, AuthError, ROLE_ADMIN, ROLE_USER
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -73,6 +74,57 @@ st.caption("")
 if "messages" not in st.session_state:
     # Each entry: {"role": "user"|"assistant", "content": str, "chart": str|None, "steps": list}
     st.session_state.messages = []
+
+if "jwt_token" not in st.session_state:
+    st.session_state.jwt_token = None
+
+if "auth_user" not in st.session_state:
+    st.session_state.auth_user = None
+
+if "auth_role" not in st.session_state:
+    st.session_state.auth_role = None
+
+# ---------------------------------------------------------------------------
+# Login screen — shown when not authenticated
+# ---------------------------------------------------------------------------
+
+if not st.session_state.jwt_token:
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("### 🔐 Sign in")
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Sign in", use_container_width=True)
+
+        if submitted:
+            try:
+                token = login(username, password)
+                import jwt as _jwt
+                claims = _jwt.decode(token, options={"verify_signature": False})
+                st.session_state.jwt_token = token
+                st.session_state.auth_user = claims.get("sub")
+                st.session_state.auth_role = claims.get("role")
+                st.session_state.messages = []  # fresh chat per login
+                st.rerun()
+            except AuthError as e:
+                st.error(str(e))
+    st.stop()
+
+# ---------------------------------------------------------------------------
+# Header with user info and logout
+# ---------------------------------------------------------------------------
+
+col_title, col_user = st.columns([6, 1])
+with col_title:
+    role_badge = "🔴 Admin" if st.session_state.auth_role == ROLE_ADMIN else "🟢 User"
+    st.caption(f"Signed in as **{st.session_state.auth_user}** · {role_badge}")
+with col_user:
+    if st.button("Sign out", use_container_width=True):
+        for key in ["jwt_token", "auth_user", "auth_role", "messages"]:
+            st.session_state[key] = None if key != "messages" else []
+        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Tool icons
@@ -139,9 +191,12 @@ if prompt := st.chat_input("Ask a question about your data..."):
         def on_event(record: dict):
             event_queue.put(record)
 
+        # Capture token before spawning thread — worker cannot access st.session_state.
+        _token = st.session_state.jwt_token
+
         def worker():
             try:
-                answer = run_question_with_callback(prompt, on_event)
+                answer = run_question_with_callback(prompt, on_event, token=_token)
                 result_holder.append(answer)
             except Exception as exc:
                 result_holder.append(None)
